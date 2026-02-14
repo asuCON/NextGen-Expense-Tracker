@@ -1,0 +1,6 @@
+SQLAlchemy
+pandas
+matplotlib
+seaborn
+plotly
+python-dotenv
