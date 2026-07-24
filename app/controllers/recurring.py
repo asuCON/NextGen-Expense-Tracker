@@ -1,15 +1,40 @@
 from app.controllers.transactions import TransactionController
 from datetime import datetime, timedelta
+from sqlalchemy.orm import Session
+from typing import Optional
 
 class RecurringTransactionController:
     """
     Automatically handles recurring transactions like monthly bills or income.
     """
 
-    def __init__(self):
-        self.tc = TransactionController()
-        # Example storage for recurring rules (could be a DB table in future)
-        self.recurring_transactions = []
+    def __init__(self, db: Optional[Session] = None):
+        self.tc = TransactionController(db=db)
+        # For streamlit, persist recurring_transactions in session_state so they are not lost on rerun.
+        # Fall back to a standard in-memory list if Streamlit is not available or outside session context.
+        try:
+            import streamlit as st
+            if hasattr(st, "session_state"):
+                if "recurring_transactions" not in st.session_state:
+                    st.session_state.recurring_transactions = []
+                self.recurring_transactions = st.session_state.recurring_transactions
+            else:
+                self.recurring_transactions = []
+        except (ImportError, RuntimeError):
+            self.recurring_transactions = []
+
+    def close(self):
+        if hasattr(self, "tc") and self.tc:
+            self.tc.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def __del__(self):
+        self.close()
 
     def add_recurring(self, user_id: int, t_type: str, category: str, amount: float, description: str, interval_days: int = 30):
         """

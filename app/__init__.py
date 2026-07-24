@@ -16,22 +16,7 @@ Base = declarative_base()
 
 def init_db():
     """Import models and create tables."""
-    from app.models import user, transaction
+    from app.models.user import User
+    from app.models.transaction import Transaction
     Base.metadata.create_all(bind=engine)
     print("Database tables created successfully!")
-
-
-def init_db():
-    """Create tables for all models"""
-    from app.models import user  # now includes the user model
-    from app.models import transaction  # transaction model will come next
-    Base.metadata.create_all(bind=engine)
-    print("Database tables created successfully!")
-
-
-def init_db():
-    """Create tables for all models"""
-    from app.models import user
-    from app.models import transaction
-    Base.metadata.create_all(bind=engine)
-    print("successfully!")

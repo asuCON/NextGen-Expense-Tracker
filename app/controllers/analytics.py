@@ -2,6 +2,8 @@ from app.controllers.transactions import TransactionController
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sqlalchemy.orm import Session
+from typing import Optional
 
 sns.set(style="whitegrid")
 
@@ -10,8 +12,21 @@ class AnalyticsController:
     Provides analytics and visualization for user transactions.
     """
 
-    def __init__(self):
-        self.tc = TransactionController()
+    def __init__(self, db: Optional[Session] = None):
+        self.tc = TransactionController(db=db)
+
+    def close(self):
+        if hasattr(self, "tc") and self.tc:
+            self.tc.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def __del__(self):
+        self.close()
 
     def get_transaction_df(self, user_id: int):
         """
@@ -45,21 +60,21 @@ class AnalyticsController:
         df = self.get_transaction_df(user_id)
         if df.empty:
             print("No transactions to plot.")
-            return
+            return None
 
         # Ensure 'type' column exists
         if 'type' not in df.columns or 'amount' not in df.columns:
             print("Transactions missing required columns.")
-            return
+            return None
 
         income = df[df['type'] == 'income']['amount'].sum()
         expense = df[df['type'] == 'expense']['amount'].sum()
 
-        plt.figure(figsize=(6, 4))
-        plt.bar(['Income', 'Expense'], [income, expense], color=['green', 'red'])
-        plt.title('Income vs Expense')
-        plt.ylabel('Amount ($)')
-        plt.show()
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.bar(['Income', 'Expense'], [income, expense], color=['green', 'red'])
+        ax.set_title('Income vs Expense')
+        ax.set_ylabel('Amount ($)')
+        return fig
 
     def plot_expense_by_category(self, user_id: int):
         """
@@ -70,12 +85,12 @@ class AnalyticsController:
 
         if expense_df.empty:
             print("No expenses to plot.")
-            return
+            return None
 
         category_sums = expense_df.groupby('category')['amount'].sum()
 
-        plt.figure(figsize=(7, 7))
-        plt.pie(
+        fig, ax = plt.subplots(figsize=(7, 7))
+        ax.pie(
             category_sums,
             labels=category_sums.index,
             autopct='%1.1f%%',
@@ -83,8 +98,8 @@ class AnalyticsController:
             shadow=True,
             explode=[0.05]*len(category_sums)
         )
-        plt.title("Expense Distribution by Category")
-        plt.show()
+        ax.set_title("Expense Distribution by Category")
+        return fig
 
     def monthly_trend(self, user_id: int):
         """
@@ -93,7 +108,7 @@ class AnalyticsController:
         df = self.get_transaction_df(user_id)
         if df.empty:
             print("No transactions to analyze.")
-            return
+            return None
 
         # Ensure date is datetime
         if not pd.api.types.is_datetime64_any_dtype(df['date']):
@@ -104,12 +119,13 @@ class AnalyticsController:
 
         if monthly.empty:
             print("No monthly data to plot.")
-            return
+            return None
 
-        monthly.plot(kind='bar', figsize=(10, 5))
-        plt.title('Monthly Income vs Expense Trend')
-        plt.ylabel('Amount ($)')
-        plt.xlabel('Month')
+        fig, ax = plt.subplots(figsize=(10, 5))
+        monthly.plot(kind='bar', ax=ax)
+        ax.set_title('Monthly Income vs Expense Trend')
+        ax.set_ylabel('Amount ($)')
+        ax.set_xlabel('Month')
         plt.xticks(rotation=45)
         plt.tight_layout()
-        plt.show()
+        return fig

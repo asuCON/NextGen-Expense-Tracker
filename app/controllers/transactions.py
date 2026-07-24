@@ -9,8 +9,25 @@ class TransactionController:
     Handles CRUD operations for transactions.
     """
 
-    def __init__(self):
-        self.db: Session = SessionLocal()
+    def __init__(self, db: Optional[Session] = None):
+        self.db: Session = db if db is not None else SessionLocal()
+        self._owns_db = db is None
+
+    def close(self):
+        if self._owns_db and self.db:
+            try:
+                self.db.close()
+            except Exception:
+                pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def __del__(self):
+        self.close()
 
     def add_transaction(
         self,

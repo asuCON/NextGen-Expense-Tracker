@@ -3,6 +3,8 @@ from app.controllers.analytics import AnalyticsController
 from sklearn.linear_model import LinearRegression
 import numpy as np
 import pandas as pd
+from sqlalchemy.orm import Session
+from typing import Optional
 
 class AIInsightsController:
     """
@@ -12,8 +14,21 @@ class AIInsightsController:
     - Budget recommendations
     """
 
-    def __init__(self):
-        self.ac = AnalyticsController()
+    def __init__(self, db: Optional[Session] = None):
+        self.ac = AnalyticsController(db=db)
+
+    def close(self):
+        if hasattr(self, "ac") and self.ac:
+            self.ac.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def __del__(self):
+        self.close()
 
     def forecast_next_month_expense(self, user_id: int):
         """
@@ -22,9 +37,9 @@ class AIInsightsController:
         """
         df = self.ac.get_transaction_df(user_id)
         df = df[df['type'] == 'expense']
-        if df.empty:
-            print("No expenses to forecast.")
-            return None
+        if df.empty or len(df) < 2:
+            print("Not enough expenses to forecast.")
+            return 0.0
 
         # Group by month
         df['month'] = df['date'].dt.to_period('M')
@@ -41,7 +56,7 @@ class AIInsightsController:
         next_month_index = np.array([[len(monthly_expense)]])
         prediction = model.predict(next_month_index)[0]
 
-        return round(prediction, 2)
+        return round(max(0.0, float(prediction)), 2)
 
     def detect_expense_anomalies(self, user_id: int):
         """
